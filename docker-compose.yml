@@ -1,0 +1,85 @@
+version: "3.5"
+    
+services:
+
+  prometheus:
+    image: prom/prometheus:${PROMETHEUS_TAG}
+    container_name: monitoring-prometheus
+    depends_on:
+      - node-exporter
+      - cadvisor
+    restart: unless-stopped
+    volumes:
+      - ./etc/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./volumes/prometheus/data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    expose:
+      - 9090
+    networks:
+      - monitoring-local-net
+
+  grafana:
+    image: grafana/grafana:${GRAFANA_TAG}
+    container_name: monitoring-grafana
+    depends_on:
+      - prometheus
+    expose:
+      - 3000
+    volumes:
+      - ./volumes/grafana/data:/var/lib/grafana
+    networks:
+      - monitoring-local-net
+      - monitoring-proxy-net
+    restart: always
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.monitoring.rule=Host(`${DOMAIN_NAME}`)"
+      - "traefik.http.routers.monitoring.entrypoints=websecure"
+      - "traefik.http.routers.monitoring.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.monitoring.middlewares=monitoring-hsts@docker"
+      - "traefik.http.middlewares.monitoring-hsts.headers.customresponseheaders.Strict-Transport-Security=max-age=15552000; includeSubDomains"
+      - "traefik.docker.network=monitoring-proxy-net"
+
+  node-exporter:
+    image: prom/node-exporter:${NODE_EXPORTER_TAG}
+    container_name: monitoring-node-exporter
+    restart: unless-stopped
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    expose:
+      - 9100
+    networks:
+      - monitoring-local-net
+  
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:${CADVISOR_TAG}
+    container_name: monitoring-cadvisor
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    expose:
+      - 8080
+    networks:
+      - monitoring-local-net
+    restart: unless-stopped
+
+networks: 
+  monitoring-local-net:
+    name: monitoring-local-net
+  monitoring-proxy-net:
+    external: 
+      name: monitoring-proxy-net
