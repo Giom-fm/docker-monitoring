@@ -5,12 +5,13 @@ services:
   prometheus:
     image: prom/prometheus:${PROMETHEUS_TAG}
     container_name: monitoring-prometheus
+    user: root
     depends_on:
       - node-exporter
       - cadvisor
     restart: unless-stopped
     volumes:
-      - ./etc/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./volumes/prometheus/etc/prometheus.yml:/etc/prometheus/prometheus.yml
       - ./volumes/prometheus/data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'

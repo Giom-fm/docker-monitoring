@@ -1,8 +1,11 @@
 #!/bin/bash -e
 
 function init (){
-    echo "ERROR: init is not implemented for this service. Aborting!"
-    exit 1
+    mkdir -p volumes/prometheus/data
+    mkdir -p volumes/prometheus/etc
+    mkdir -p volumes/grafana/data
+    cp etc/prometheus.yml volumes/prometheus/etc
+    sudo chown -R 472:0 volumes/grafana
 }
 
 if [[ -z "$1" || "$1" == "--help" ]]; then
